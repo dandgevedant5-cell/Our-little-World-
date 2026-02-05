@@ -1,63 +1,70 @@
 const config = {
   type: Phaser.AUTO,
-  width: 800,
+  width: 900,
   height: 600,
   parent: "game",
-  physics: {
-    default: "arcade"
-  },
-  scene: { preload, create, update }
+  backgroundColor: "#f6e7c1",
+  physics: { default: "arcade" },
+  scene: { create, update }
 };
 
-const game = new Phaser.Game(config);
+new Phaser.Game(config);
 
-let player;
-let cursors;
-let interactKey;
-let heartsCollected = 0;
-let totalHearts = 4;
+let player, cursors, interactKey;
+let locations = [];
+let hearts, heartsCollected = 0;
+const totalHearts = 5;
 let hillUnlocked = false;
-
-function preload() {
-  // simple colored squares as textures
-}
 
 function create() {
   const scene = this;
 
-  // Warm background
-  this.add.rectangle(400, 300, 800, 600, 0xffe8c6);
+  // 🌿 soft ground tiles feel
+  for (let i = 0; i < 60; i++) {
+    this.add.circle(
+      Phaser.Math.Between(0,900),
+      Phaser.Math.Between(0,600),
+      Phaser.Math.Between(2,5),
+      0xe9d8a6,
+      0.4
+    );
+  }
 
-  // Player
-  player = this.add.rectangle(100, 100, 28, 28, 0x4a90e2);
+  // 👤 player
+  player = this.add.rectangle(80, 80, 26, 26, 0x3a86ff);
   this.physics.add.existing(player);
 
-  // Locations
-  createLocation(this, 150, 150, 80, 80, 0xffc4a3, 
-    "🏡 Home — Welcome to Our Little World.");
+  // 🌳 decorative trees (gentle sway)
+  makeTree(this, 120, 520);
+  makeTree(this, 820, 120);
+  makeTree(this, 500, 520);
 
-  createLocation(this, 350, 120, 90, 70, 0xcaffbf, 
-    "☕ Café — This is where our story began.");
+  // 🏡 locations
+  addLocation(this, 160, 150, 90, 90, 0xffc8a2,
+    "🏡 Home — Every good story needs a beginning. Ours started with you.");
 
-  createLocation(this, 600, 180, 100, 60, 0xbdb2ff, 
-    "🌳 Park Bench — I could sit and talk with you forever.");
+  addLocation(this, 420, 130, 110, 70, 0xcaffbf,
+    "☕ Café — First talks, first laughs, first spark.");
 
-  createLocation(this, 250, 380, 110, 80, 0xffadad, 
-    "🎮 Snack & Fun Zone — Our chaos is my favorite.");
+  addLocation(this, 720, 210, 110, 70, 0xbdb2ff,
+    "🌳 Park Bench — Time feels softer when I'm with you.");
 
-  // Locked hill
-  scene.hillZone = createLocation(this, 650, 420, 110, 90, 0x999999,
-    "🌌 Final Hill — Locked. Collect all hearts first.");
+  addLocation(this, 260, 380, 120, 90, 0xffadad,
+    "🎮 Fun Zone — Our jokes > everything else.");
 
-  // Hearts (collectibles)
-  scene.hearts = this.physics.add.group();
+  scene.hill = addLocation(this, 720, 460, 120, 90, 0x9e9e9e,
+    "🌌 Locked — Collect all hearts to unlock our future hill.");
 
-  addHeart(this, 500, 100, "You make my days brighter.");
-  addHeart(this, 200, 300, "You are my favorite notification.");
-  addHeart(this, 420, 450, "I love your smile.");
-  addHeart(this, 700, 260, "Life feels warmer with you.");
+  // ❤️ hearts
+  hearts = this.physics.add.group();
 
-  this.physics.add.overlap(player, scene.hearts, collectHeart, null, this);
+  addHeart(this, 520, 80, "You make ordinary days magical.");
+  addHeart(this, 200, 300, "You are my favorite person.");
+  addHeart(this, 600, 360, "I love your chaos.");
+  addHeart(this, 350, 500, "You matter to me — a lot.");
+  addHeart(this, 820, 340, "My safe place = you.");
+
+  this.physics.add.overlap(player, hearts, collectHeart, null, this);
 
   cursors = this.input.keyboard.createCursorKeys();
   interactKey = this.input.keyboard.addKey(
@@ -66,82 +73,87 @@ function create() {
 }
 
 function update() {
-  const speed = 160;
+  const s = 170;
   player.body.setVelocity(0);
 
-  if (cursors.left.isDown) player.body.setVelocityX(-speed);
-  if (cursors.right.isDown) player.body.setVelocityX(speed);
-  if (cursors.up.isDown) player.body.setVelocityY(-speed);
-  if (cursors.down.isDown) player.body.setVelocityY(speed);
+  if (cursors.left.isDown) player.body.setVelocityX(-s);
+  if (cursors.right.isDown) player.body.setVelocityX(s);
+  if (cursors.up.isDown) player.body.setVelocityY(-s);
+  if (cursors.down.isDown) player.body.setVelocityY(s);
 
   if (Phaser.Input.Keyboard.JustDown(interactKey)) {
-    checkInteractions(this);
+    checkLocationTouch(this);
   }
 }
 
-function createLocation(scene, x, y, w, h, color, message) {
-  const rect = scene.add.rectangle(x, y, w, h, color).setStrokeStyle(2,0x333333);
-  scene.physics.add.existing(rect, true);
-  rect.message = message;
-  if (!scene.locations) scene.locations = [];
-  scene.locations.push(rect);
-  return rect;
+function makeTree(scene, x, y) {
+  const t = scene.add.rectangle(x,y,30,40,0x2a9d8f);
+  scene.tweens.add({
+    targets: t,
+    angle: 2,
+    yoyo: true,
+    repeat: -1,
+    duration: 1800
+  });
 }
 
-function addHeart(scene, x, y, text) {
-  const heart = scene.add.circle(x, y, 12, 0xff4d6d);
-  scene.physics.add.existing(heart);
-  heart.message = text;
+function addLocation(scene, x,y,w,h,color,msg) {
+  const r = scene.add.rectangle(x,y,w,h,color).setStrokeStyle(2,0x333);
+  scene.physics.add.existing(r,true);
+  r.message = msg;
+  locations.push(r);
+  return r;
+}
 
-  // gentle floating animation
+function addHeart(scene,x,y,msg){
+  const h = scene.add.circle(x,y,12,0xff4d6d);
+  scene.physics.add.existing(h);
+  h.message = msg;
+
   scene.tweens.add({
-    targets: heart,
-    y: y - 10,
-    duration: 1200,
-    yoyo: true,
-    repeat: -1
+    targets:h,
+    y:y-12,
+    yoyo:true,
+    repeat:-1,
+    duration:1200
   });
 
-  scene.hearts.add(heart);
+  hearts.add(h);
 }
 
-function collectHeart(player, heart) {
-  showMessage("❤️ " + heart.message);
-  heart.destroy();
+function collectHeart(player,h){
+  showMessage("❤️ "+h.message);
+  h.destroy();
   heartsCollected++;
 
-  if (heartsCollected === totalHearts) {
+  if(heartsCollected===totalHearts){
     hillUnlocked = true;
-    showMessage("🌟 All hearts found — Final Hill unlocked!");
+    showMessage("🌟 The hill is now unlocked.");
   }
 }
 
-function checkInteractions(scene) {
-  scene.locations.forEach(loc => {
-    if (Phaser.Geom.Intersects.RectangleToRectangle(
-      player.getBounds(),
-      loc.getBounds()
-    )) {
-      if (loc === scene.hillZone && !hillUnlocked) {
+function checkLocationTouch(scene){
+  locations.forEach(loc=>{
+    if(Phaser.Geom.Intersects.RectangleToRectangle(
+      player.getBounds(), loc.getBounds()
+    )){
+      if(loc===scene.hill && !hillUnlocked){
         showMessage(loc.message);
-      } else if (loc === scene.hillZone && hillUnlocked) {
-        showMessage(
-          "🌌 Under these stars — I’m so grateful for you. This is just the beginning of our story."
-        );
+      }
+      else if(loc===scene.hill && hillUnlocked){
         scene.cameras.main.setBackgroundColor("#0b1d3a");
-      } else {
+        showMessage("🌌 With you — every future feels bright. I love us.");
+      }
+      else{
         showMessage(loc.message);
       }
     }
   });
 }
 
-function showMessage(text) {
+function showMessage(t){
   const box = document.getElementById("messageBox");
-  box.innerText = text;
+  box.innerText = t;
   box.classList.remove("hidden");
-
-  setTimeout(() => {
-    box.classList.add("hidden");
-  }, 3500);
+  setTimeout(()=>box.classList.add("hidden"), 4000);
 }
